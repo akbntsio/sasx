@@ -46,6 +46,7 @@
     sox play を使うとき
 */
 #define SOXPLAY
+#define MINBYTES 16384 /* これ以上小さいとsox落ちる */
 
 #ifdef hpux
 #include <sys/time.h>
@@ -236,9 +237,9 @@ int  read_short(SasProp *obj, char *buff, int len, FILE *fp)
 
 	/* larger datatype */
 	else if( obj->file.type == 'L' ){
-		long  *lbuf = (long *)buff;
+		int32_t  *lbuf = (int32_t *)buff;
 		float gain = 65536.0 / (obj->view.ymax - obj->view.ymin);
-		len = fread(buff,sizeof(long),len/sizeof(short),fp);
+		len = fread(buff,sizeof(int32_t),len/sizeof(short),fp);
 		for( i=0; i<len; i++ )
 			sbuf[i] = (short)(lbuf[i] * gain);
 		return len*sizeof(short);
@@ -501,10 +502,10 @@ void da(SasProp *obj)
 			while( pushed < len ) {
 				int wrote = 0;
 #ifdef USE_POPEN
-				wrote = fwrite(buff,1,len,pfp);
+				wrote = fwrite(buff+pushed,1,len-pushed,pfp);
 				fflush(pfp);
 #else /* not USE_POPEN */
-				wrote = write(pfd[1],buff,len);
+				wrote = write(pfd[1],buff+pushed,len-pushed);
 #endif /* USE_POPEN */
 				if( wrote < 0 ) break;
 				pushed += wrote;
@@ -524,6 +525,17 @@ void da(SasProp *obj)
 				} else {
 					/* ループしない時は終る */
 					/* close しないと最後まで再生しない */
+					/* sox play は最低16KBないとバグる */
+					memset(buff, 0, trans_size);
+					while( passed < MINBYTES ){
+#ifdef USE_POPEN
+						fwrite(buff,1,trans_size,pfp);
+						fflush(pfp);
+#else /* not USE_POPEN */
+						write(pfd[1],buff,trans_size);
+#endif /* USE_POPEN */
+						passed += trans_size;
+					}
 #ifdef USE_POPEN
 					if( pfp ) pclose(pfp);
 					pfp = 0;
@@ -536,6 +548,7 @@ void da(SasProp *obj)
 					rest = 0;
 					sas_markerstr(obj,"PLAY");
 					sas_markerstr(obj,"");
+					obj->view.daon = 0;
 				}
 			}
 		}

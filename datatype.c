@@ -24,20 +24,20 @@
 
 struct RIFF {
 	char              riff[4];
-	long              size;
+	uint32_t             size;
 	char              wave[4];
 };
 
 struct RIFF_CHUNK {
 	char    id[4];  /* "data" */
-	long   size;
+	uint32_t   size;
 };
 
 struct RIFF_FMT {
 	short   enc;
 	short   chan;
-	long    freq;
-	long    bytes_sec;
+	uint32_t    freq;
+	uint32_t    bytes_sec;
 	short   balign;
 	short   bit_sample;
 };
@@ -46,11 +46,11 @@ struct RIFF_FMT {
 
 struct AU {
 	char    snd[4];
-	long    hsize;
-	long    dsize;
-	long    enc;
-	long    freq;
-	long    chan;
+	uint32_t    hsize;
+	uint32_t    dsize;
+	uint32_t    enc;
+	uint32_t    freq;
+	uint32_t    chan;
 };
 
 /* COMMON HEADER DEFINITION */

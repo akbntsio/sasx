@@ -13,9 +13,9 @@ CC = gcc
 ### BUILD OPTION
 PROG = sasx
 VER  = 2.1
-MINOR = 32
-DATE = 20220817
-NOTES = float_freq_cursor
+MINOR = 33
+DATE = 20221009
+NOTES = long to int32_t, work around a sox-play error.
 VERSTR = $(VER).$(MINOR)($(DATE)) $(NOTES)
 DFLAGS = -g 
 #DFLAGS = -O4 -m486 
