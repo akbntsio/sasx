@@ -1381,9 +1381,14 @@ void sas_print_position(SasProp *obj)
 	float	ms;
 
 	ms = 1000.0 * obj->view.cssmpl / obj->file.freq;
-	if( obj->view.mode != MODE_WAVE )
-		sprintf(str, "CURR:%6d %7.1fms  FRQ:%6d",
-			obj->view.cssmpl, ms, (int)obj->view.csfreq);
+	if( obj->view.mode != MODE_WAVE ){
+		if( obj->view.smax < 1000 )
+			sprintf(str, "CURR:%6d %7.1fms  FRQ:%6.1f",
+				obj->view.cssmpl, ms, obj->view.csfreq);
+		else
+			sprintf(str, "CURR:%6d %7.1fms  FRQ:%6d",
+				obj->view.cssmpl, ms, (int)obj->view.csfreq);
+	}
 	else
 		sprintf(str, "CURR:%6d %7.1fms  AMP:%6g",
 			obj->view.cssmpl, ms, obj->view.csamp);
@@ -1441,7 +1446,7 @@ void sas_cross_hair(SasProp *obj, SasProp *master)
 	int   scaleh, lblh, hrange, hbase, powh;
 	int   nchan, x, y, ch;
 	float ymin, ymax, yrange;
-	int   frange, f;
+	float frange, f;
 	extern float  Mel(float);
 
 	/* TACK X TO THE SAMPLE */
@@ -1466,16 +1471,15 @@ void sas_cross_hair(SasProp *obj, SasProp *master)
 	nchan = obj->file.chan;
 	if( obj->view.mode != MODE_WAVE ){
 		/* TACK Y TO THE FREQ */
-		frange = obj->file.freq/2/obj->view.fzoom;
+		frange = obj->file.freq/2.0/obj->view.fzoom;
 		f = obj->view.csfreq = master->view.csfreq;
 		for( ch=0; ch<obj->file.chan; ch++ ){
 			if( obj->view.fscale == FSC_MEL )
 				y = obj->view.csy = hbase + hrange*(ch+1)/nchan - powh
-				  - (hrange/nchan-powh)
-				  *  Mel((float)f) / Mel((float)frange);
+				  - (int)((hrange/nchan-powh) *  Mel(f) / Mel(frange));
 			else
 				y = obj->view.csy = hbase + hrange*(ch+1)/nchan - powh
-				  - (hrange/nchan-powh) * f / frange;
+				  - (int)((hrange/nchan-powh) * f / frange);
 			if( y >= hbase && y <= hbase + hrange)
 				XDrawLine(obj->win.disp, obj->win.win, obj->win.csgc,
 				obj->win.scalew, y, obj->win.size.width, y);
@@ -1551,12 +1555,13 @@ float sas_y_to_amp(SasProp *obj, int y, int *ch)
 /* =================================================================
 マウスの位置 y に最も近い周波数の値を求める
 ================================================================= */
-int sas_y_to_freq(SasProp *obj, int y, int *ch)
+float sas_y_to_freq(SasProp *obj, int y, int *ch)
 {
 	int   nchan, scaleh, powh;
 	float melf;
 	/* float ymin, ymax, yrange;*/
-	int   lblh, hmax, hrange, frange, freq;
+	int   lblh, hmax, hrange;
+	float freq, frange;
 	int   chh;
 	extern float  Mel(float);
 	extern float  MelInv(float);
@@ -1571,7 +1576,7 @@ int sas_y_to_freq(SasProp *obj, int y, int *ch)
 	hmax = obj->win.size.height - scaleh - lblh;
 	hrange = obj->win.size.height - scaleh*2 - lblh;
 	chh = hrange / nchan; /* include powh */
-	frange = obj->file.freq/2/obj->view.fzoom;
+	frange = obj->file.freq/2.0/obj->view.fzoom;
 
 	if( y < scaleh ) { *ch = 0; return frange; }
 	if( y > scaleh+hrange ) { *ch = nchan-1; return 0; }
@@ -1579,11 +1584,11 @@ int sas_y_to_freq(SasProp *obj, int y, int *ch)
 	*ch  = ((y-scaleh)/chh);
 	if( *ch >= nchan ) *ch = nchan - 1;
 	if( obj->view.fscale == FSC_MEL ){
-		melf = (((hmax-y)%chh)-powh) * Mel((float)frange)/(chh-powh);
+		melf = (((hmax-y)%chh)-powh) * Mel(frange)/(chh-powh);
 		freq = MelInv(melf);
 	}
 	else {
-		freq = (((hmax-y)%chh)-powh) * (float)frange/(chh-powh);
+		freq = (((hmax-y)%chh)-powh) * frange/(chh-powh);
 	}
   	if( freq < 0 ) freq = 0;
 	if( freq > frange ) freq = frange;
@@ -1659,7 +1664,7 @@ void sas_fill_rect(SasProp *obj, int x1, int y1, int x2, int y2)
 /* =================================================================
 ch および周波数 hi, lo に対応する y 座標を得る
 ================================================================= */
-int sas_freq_to_y(SasProp *obj, int freq, int ch)
+int sas_freq_to_y(SasProp *obj, float freq, int ch)
 {
 	int    h0 = obj->win.scaleh;
 	int    hr = obj->win.size.height - obj->win.scaleh * 2;
@@ -1679,14 +1684,14 @@ int sas_freq_to_y(SasProp *obj, int freq, int ch)
 	if( obj->view.fscale == FSC_MEL ){
 		y = h0 - powh +
 		    ( (hr * (ch+1)) -
-		      (hr - powh * nchan) * Mel((float)freq) / Mel((float)niq / fzoom)
+		      (hr - powh * nchan) * Mel(freq) / Mel((float)niq / fzoom)
 		    ) / nchan;
 	}
 	else {
 		y = h0 - powh +
-		    ( (hr * (ch+1)) -
+		    (int)(( (hr * (ch+1)) -
 		      (hr - powh * nchan) * freq * fzoom / niq
-		    ) / nchan;
+		    ) / nchan);
 	}
 	/* その心は */
 	/* h0 + (hr / nchan * (ch+1)) - powh - ((hr / nchan - powh) * freq / niq) */
@@ -1725,8 +1730,8 @@ void sas_fill_area(SasProp *obj)
 		else {
 			/* スペクトルの一部分を選択 */
 			for(ch=0; ch<obj->file.chan; ch++){
-				h = sas_freq_to_y(obj, obj->view.efreq, ch);
-				l = sas_freq_to_y(obj, obj->view.sfreq, ch);
+				h = sas_freq_to_y(obj, (float)obj->view.efreq, ch);
+				l = sas_freq_to_y(obj, (float)obj->view.sfreq, ch);
 				sas_fill_rect(obj, s, h, e, l);
 			}
 		}
@@ -1757,7 +1762,7 @@ void  sas_sel_start(SasProp *obj, int smpl, int freq, int fsel)
 	x = (x<scalew)?scalew:((x>=w)?w-1:x);
 	obj->view.sfrom = x;
 	obj->view.sto = x;
-	y = sas_freq_to_y(obj, freq, 0);
+	y = sas_freq_to_y(obj, (float)freq, 0);
 	obj->view.ffrom = y;
 	obj->view.fto = y; 
 
@@ -1816,8 +1821,8 @@ void  sas_sel_end(SasProp *obj, int smpl, int freq, int fsel)
 		}
 		else {
 			for(ch=0; ch<obj->file.chan; ch++){
-				h = sas_freq_to_y(obj, obj->view.efreq, ch);
-				l = sas_freq_to_y(obj, obj->view.sfreq, ch);
+				h = sas_freq_to_y(obj, (float)obj->view.efreq, ch);
+				l = sas_freq_to_y(obj, (float)obj->view.sfreq, ch);
 				if( h > l ) { h = h+l; l = h-l;  h = h-l; }
 				sas_fill_rect(obj, obj->view.sto+d3, h, x+d4, l);
 				if( past*curr < 0 )			/* 裏返った時、始点位置を再描画 */
@@ -1828,7 +1833,7 @@ void  sas_sel_end(SasProp *obj, int smpl, int freq, int fsel)
 	obj->view.sto = x;
 
 	/* Y 表示位置の移動 obj->view.ffrom -> y */
-	y = sas_freq_to_y(obj, freq, 0);
+	y = sas_freq_to_y(obj, (float)freq, 0);
 	ymotion = sign(y - obj->view.fto);
 	if( obj->view.mode != MODE_WAVE && obj->view.fsel && ymotion ){
 		int   x1, x2;
@@ -1836,9 +1841,9 @@ void  sas_sel_end(SasProp *obj, int smpl, int freq, int fsel)
 		x2 = obj->view.sto;
 		if( x1 > x2 ){ x1 = x1+x2; x2 = x1-x2; x1 = x1-x2; }
 		for(ch=0; ch<obj->file.chan; ch++){
-			int   y0 = sas_freq_to_y(obj, obj->view.sfreq, ch);
-			int   y1 = sas_freq_to_y(obj, obj->view.efreq, ch);
-			int   y2 = sas_freq_to_y(obj, freq, ch);
+			int   y0 = sas_freq_to_y(obj, (float)obj->view.sfreq, ch);
+			int   y1 = sas_freq_to_y(obj, (float)obj->view.efreq, ch);
+			int   y2 = sas_freq_to_y(obj, (float)freq, ch);
 			past = sign(y1 - y0); /* かつての方向 */
 			curr = sign(y2 - y0);	/* こんどの方向 */
 			ymotion = sign(y2 - y1);

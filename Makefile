@@ -13,9 +13,9 @@ CC = gcc
 ### BUILD OPTION
 PROG = sasx
 VER  = 2.1
-MINOR = 31
-DATE = 20220815
-NOTES = github_first_ver
+MINOR = 32
+DATE = 20220817
+NOTES = float_freq_cursor
 VERSTR = $(VER).$(MINOR)($(DATE)) $(NOTES)
 DFLAGS = -g 
 #DFLAGS = -O4 -m486 
